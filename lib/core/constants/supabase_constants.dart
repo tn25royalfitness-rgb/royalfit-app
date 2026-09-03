@@ -5,15 +5,13 @@
 /// safe to ship client-side by design (it is subject to RLS policies
 /// enforced server-side).
 ///
-/// TODO: `anonKey` below is a placeholder — replace it with the real
-/// anon/publishable key from Supabase Dashboard -> Settings -> API for
-/// project ufpaeaondevdhuqnuaqe before this app can log anyone in.
 class SupabaseConstants {
   SupabaseConstants._();
 
   static const String url = 'https://ufpaeaondevdhuqnuaqe.supabase.co';
 
-  static const String anonKey = 'REPLACE_WITH_ANON_PUBLISHABLE_KEY';
+  static const String anonKey =
+      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVmcGFlYW9uZGV2ZGh1cW51YXFlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgzNjUxMTQsImV4cCI6MjEwMzk0MTExNH0.H4JtgGq6BFWfIm_13TNWQP8u3OAN-V1XzqLfnYsAbp0';
 
   /// Name of the edge function used for the custom member-ID + password
   /// login flow (not Supabase Auth).
