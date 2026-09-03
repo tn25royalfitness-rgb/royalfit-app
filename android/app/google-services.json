@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "311070586724",
+    "project_id": "royal-fit-b6460",
+    "storage_bucket": "royal-fit-b6460.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:311070586724:android:4c68fda4c39089f9422c71",
+        "android_client_info": {
+          "package_name": "Royal.fit"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDk1vhr7Thb-LIYfVWYodd37v2VsJEslik"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
