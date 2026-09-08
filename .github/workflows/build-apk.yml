@@ -1,0 +1,73 @@
+name: Build Android APK
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+
+      - name: Bootstrap Flutter project (first run only)
+        run: |
+          if [ ! -f pubspec.yaml ]; then
+            echo "No pubspec.yaml found - scaffolding a fresh Flutter project."
+            flutter create --org Royal --project-name royalfitness_app .
+          else
+            echo "pubspec.yaml already exists - skipping scaffold."
+          fi
+
+      - name: Commit scaffold if this was a bootstrap run
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if ! git diff --cached --quiet; then
+            git commit -m "Bootstrap Flutter project scaffold [skip ci]"
+            git push
+          else
+            echo "Nothing to commit."
+          fi
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Generate launcher icons
+        run: dart run flutter_launcher_icons
+
+      - name: Build release APK
+        run: flutter build apk --release
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: royalfitness-app-release-apk
+          path: build/app/outputs/flutter-apk/app-release.apk
+          if-no-files-found: error
+
+      - name: Publish stable download release
+        # GitHub Actions artifacts require a logged-in GitHub session and
+        # expire after 90 days, so they're fine for the owner but useless
+        # for a public "download the app" link on the website. This
+        # publishes/updates a fixed 'latest' release instead, giving a
+        # permanent, no-login-required URL:
+        # https://github.com/<owner>/<repo>/releases/download/latest/app-release.apk
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: latest
+          name: Latest Build
+          body: Automatically published from the latest successful build on main.
+          files: build/app/outputs/flutter-apk/app-release.apk
+          make_latest: true
