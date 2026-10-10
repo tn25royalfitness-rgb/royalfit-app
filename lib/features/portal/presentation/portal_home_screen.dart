@@ -135,6 +135,7 @@ class _PortalHomeScreenState extends ConsumerState<PortalHomeScreen> {
       await ref.read(pushRepositoryProvider).unregisterCurrentDevice(memberId);
     }
     await ref.read(sessionRepositoryProvider).clearSession();
+    await ref.read(biometricLockProvider).setEnabled(false);
     if (!mounted) return;
     context.go('/login');
   }

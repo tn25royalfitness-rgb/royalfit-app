@@ -16,6 +16,10 @@ class SplashScreen extends ConsumerStatefulWidget {
 }
 
 class _SplashScreenState extends ConsumerState<SplashScreen> {
+  // True once biometric unlock was required but failed / was cancelled; the
+  // spinner is then replaced by Unlock / Use password buttons (no auto-loop).
+  bool _showUnlockPrompt = false;
+
   @override
   void initState() {
     super.initState();
@@ -33,6 +37,23 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
       return;
     }
 
+    // Optional fingerprint / face unlock - only when the member opted in and
+    // the device still supports it. Otherwise the flow is unchanged.
+    final biometricLock = ref.read(biometricLockProvider);
+    if (await biometricLock.isEnabled() && await biometricLock.isSupported()) {
+      if (!mounted) return;
+      final unlocked = await biometricLock.authenticate();
+      if (!mounted) return;
+      if (!unlocked) {
+        setState(() {
+          _showUnlockPrompt = true;
+        });
+        return;
+      }
+    }
+
+    if (!mounted) return;
+
     final result = await sessionRepository.revalidate(storedMember);
 
     if (!mounted) return;
@@ -47,16 +68,34 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
     }
   }
 
+  void _retryUnlock() {
+    setState(() {
+      _showUnlockPrompt = false;
+    });
+    _checkSession();
+  }
+
+  Future<void> _usePasswordInstead() async {
+    await ref.read(sessionRepositoryProvider).clearSession();
+    await ref.read(biometricLockProvider).setEnabled(false);
+    if (!mounted) return;
+    context.go('/login');
+  }
+
   @override
   Widget build(BuildContext context) {
-    return const Scaffold(
+    return Scaffold(
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Image(image: AssetImage('assets/logo.png'), width: 96, height: 96),
-            SizedBox(height: 24),
-            Text(
+            const Image(
+              image: AssetImage('assets/logo.png'),
+              width: 96,
+              height: 96,
+            ),
+            const SizedBox(height: 24),
+            const Text(
               'Royal Fitness',
               style: TextStyle(
                 color: Colors.white,
@@ -64,8 +103,22 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
                 fontWeight: FontWeight.bold,
               ),
             ),
-            SizedBox(height: 32),
-            CircularProgressIndicator(color: Color(0xFFD4AF37)),
+            const SizedBox(height: 32),
+            if (_showUnlockPrompt) ...[
+              SizedBox(
+                width: 240,
+                child: ElevatedButton(
+                  onPressed: _retryUnlock,
+                  child: const Text('Unlock'),
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextButton(
+                onPressed: _usePasswordInstead,
+                child: const Text('Use password instead'),
+              ),
+            ] else
+              const CircularProgressIndicator(color: Color(0xFFD4AF37)),
           ],
         ),
       ),

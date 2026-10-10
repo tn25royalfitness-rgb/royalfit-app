@@ -86,6 +86,7 @@ class AccessRestrictedScreen extends ConsumerWidget {
       await ref.read(pushRepositoryProvider).unregisterCurrentDevice(memberId);
     }
     await ref.read(sessionRepositoryProvider).clearSession();
+    await ref.read(biometricLockProvider).setEnabled(false);
     if (!context.mounted) return;
     context.go('/login');
   }

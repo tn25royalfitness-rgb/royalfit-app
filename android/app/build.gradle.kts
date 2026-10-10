@@ -28,8 +28,9 @@ android {
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         // Pinned to 23 (not flutter.minSdkVersion) because KeyGenParameterSpec
         // and BiometricPrompt, used for the device-key punch-in signing flow,
-        // require API 23+.
-        minSdk = maxOf(23, flutter.minSdkVersion)
+        // require API 23+. Raised to 24 because local_auth_android (fingerprint
+        // / face unlock) declares minSdk 24.
+        minSdk = maxOf(24, flutter.minSdkVersion)
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName

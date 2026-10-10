@@ -27,6 +27,9 @@ class SessionRepository {
 
   static const String _sessionKey = SupabaseConstants.memberSessionStorageKey;
 
+  // The password column is intentionally not readable by the app.
+  static const String _memberColumns = 'id, member_id, full_name, phone, email, address, date_of_birth, height, weight, photo_url, package_id, package_start_date, package_end_date, is_active, user_id, created_at, updated_at, client_type, approval_status';
+
   /// Persists the full member JSON to local app-private storage.
   Future<void> saveSession(Map<String, dynamic> member) async {
     final prefs = await SharedPreferences.getInstance();
@@ -61,7 +64,7 @@ class SessionRepository {
   Future<Map<String, dynamic>?> fetchFreshMember(String id) async {
     final result = await _supabaseClient
         .from(SupabaseConstants.membersTable)
-        .select()
+        .select(_memberColumns)
         .eq('id', id)
         .maybeSingle();
     return result;

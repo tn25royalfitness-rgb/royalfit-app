@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/providers.dart';
 import '../../../core/router/app_router.dart';
@@ -33,9 +34,88 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _memberIdController = TextEditingController();
   final _passwordController = TextEditingController();
 
+  static const String _lastMemberIdKey = 'last_member_id';
+
   bool _obscurePassword = true;
   bool _isLoading = false;
   String? _errorMessage;
+
+  @override
+  void initState() {
+    super.initState();
+    _prefillLastMemberId();
+  }
+
+  /// Prefills the Member ID field with the last member that logged in on
+  /// this device. Only the ID is remembered - never the password.
+  Future<void> _prefillLastMemberId() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final lastMemberId = prefs.getString(_lastMemberIdKey);
+      if (!mounted) return;
+      if (lastMemberId != null &&
+          lastMemberId.isNotEmpty &&
+          _memberIdController.text.isEmpty) {
+        _memberIdController.text = lastMemberId;
+      }
+    } catch (_) {
+      // Prefill is a convenience only.
+    }
+  }
+
+  Future<void> _rememberMemberId(String memberId) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_lastMemberIdKey, memberId.trim().toUpperCase());
+    } catch (_) {
+      // Convenience only - must never fail the login.
+    }
+  }
+
+  /// Offers (once) to enable fingerprint / face unlock after a successful
+  /// login. Enabled only if the member also passes a biometric check.
+  Future<void> _offerBiometricUnlock() async {
+    try {
+      final biometricLock = ref.read(biometricLockProvider);
+      if (!await biometricLock.isSupported()) return;
+      if (await biometricLock.isEnabled()) return;
+      if (!mounted) return;
+
+      final wantsEnable = await showDialog<bool>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          backgroundColor: const Color(0xFF1E1E1E),
+          title: const Text(
+            'Enable fingerprint unlock?',
+            style: TextStyle(color: Colors.white),
+          ),
+          content: const Text(
+            'Sign in faster next time with your fingerprint or face.',
+            style: TextStyle(color: Colors.white70),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: const Text('Not now'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              child: const Text('Enable'),
+            ),
+          ],
+        ),
+      );
+
+      if (wantsEnable != true) return;
+      if (!mounted) return;
+
+      if (await biometricLock.authenticate()) {
+        await biometricLock.setEnabled(true);
+      }
+    } catch (_) {
+      // Optional feature - never block the login on it.
+    }
+  }
 
   @override
   void dispose() {
@@ -61,8 +141,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
       final sessionRepository = ref.read(sessionRepositoryProvider);
       await sessionRepository.saveSession(member);
+      await _rememberMemberId(_memberIdController.text);
 
       final status = computeAccessStatus(member);
+
+      if (!mounted) return;
+
+      await _offerBiometricUnlock();
 
       if (!mounted) return;
 
@@ -107,101 +192,105 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         child: Center(
           child: SingleChildScrollView(
             padding: const EdgeInsets.all(24),
-            child: Form(
-              key: _formKey,
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  const Image(
-                    image: AssetImage('assets/logo.png'),
-                    width: 88,
-                    height: 88,
-                  ),
-                  const SizedBox(height: 16),
-                  const Text(
-                    'Royal Fitness',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 28,
-                      fontWeight: FontWeight.bold,
+            child: AutofillGroup(
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const Image(
+                      image: AssetImage('assets/logo.png'),
+                      width: 88,
+                      height: 88,
                     ),
-                  ),
-                  const SizedBox(height: 4),
-                  const Text(
-                    'Member Login',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(color: Colors.white70, fontSize: 16),
-                  ),
-                  const SizedBox(height: 32),
-                  TextFormField(
-                    controller: _memberIdController,
-                    textCapitalization: TextCapitalization.characters,
-                    inputFormatters: [_UpperCaseTextFormatter()],
-                    style: const TextStyle(color: Colors.white),
-                    decoration: const InputDecoration(
-                      labelText: 'Member ID',
-                      hintText: 'RY0001',
-                    ),
-                    validator: (value) {
-                      if (value == null || value.trim().isEmpty) {
-                        return 'Enter your member ID';
-                      }
-                      return null;
-                    },
-                  ),
-                  const SizedBox(height: 16),
-                  TextFormField(
-                    controller: _passwordController,
-                    obscureText: _obscurePassword,
-                    style: const TextStyle(color: Colors.white),
-                    decoration: InputDecoration(
-                      labelText: 'Password',
-                      suffixIcon: IconButton(
-                        icon: Icon(
-                          _obscurePassword
-                              ? Icons.visibility_outlined
-                              : Icons.visibility_off_outlined,
-                          color: Colors.white70,
-                        ),
-                        onPressed: () {
-                          setState(() {
-                            _obscurePassword = !_obscurePassword;
-                          });
-                        },
+                    const SizedBox(height: 16),
+                    const Text(
+                      'Royal Fitness',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 28,
+                        fontWeight: FontWeight.bold,
                       ),
                     ),
-                    validator: (value) {
-                      if (value == null || value.isEmpty) {
-                        return 'Enter your password';
-                      }
-                      return null;
-                    },
-                  ),
-                  if (_errorMessage != null) ...[
-                    const SizedBox(height: 12),
-                    Text(
-                      _errorMessage!,
-                      style: const TextStyle(color: Color(0xFFD4AF37)),
+                    const SizedBox(height: 4),
+                    const Text(
+                      'Member Login',
                       textAlign: TextAlign.center,
+                      style: TextStyle(color: Colors.white70, fontSize: 16),
+                    ),
+                    const SizedBox(height: 32),
+                    TextFormField(
+                      controller: _memberIdController,
+                      textCapitalization: TextCapitalization.characters,
+                      autofillHints: const [AutofillHints.username],
+                      inputFormatters: [_UpperCaseTextFormatter()],
+                      style: const TextStyle(color: Colors.white),
+                      decoration: const InputDecoration(
+                        labelText: 'Member ID',
+                        hintText: 'RY0001',
+                      ),
+                      validator: (value) {
+                        if (value == null || value.trim().isEmpty) {
+                          return 'Enter your member ID';
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    TextFormField(
+                      controller: _passwordController,
+                      obscureText: _obscurePassword,
+                      autofillHints: const [AutofillHints.password],
+                      style: const TextStyle(color: Colors.white),
+                      decoration: InputDecoration(
+                        labelText: 'Password',
+                        suffixIcon: IconButton(
+                          icon: Icon(
+                            _obscurePassword
+                                ? Icons.visibility_outlined
+                                : Icons.visibility_off_outlined,
+                            color: Colors.white70,
+                          ),
+                          onPressed: () {
+                            setState(() {
+                              _obscurePassword = !_obscurePassword;
+                            });
+                          },
+                        ),
+                      ),
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'Enter your password';
+                        }
+                        return null;
+                      },
+                    ),
+                    if (_errorMessage != null) ...[
+                      const SizedBox(height: 12),
+                      Text(
+                        _errorMessage!,
+                        style: const TextStyle(color: Color(0xFFD4AF37)),
+                        textAlign: TextAlign.center,
+                      ),
+                    ],
+                    const SizedBox(height: 24),
+                    ElevatedButton(
+                      onPressed: _isLoading ? null : _handleLogin,
+                      child: _isLoading
+                          ? const SizedBox(
+                              height: 20,
+                              width: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
+                            )
+                          : const Text('Login'),
                     ),
                   ],
-                  const SizedBox(height: 24),
-                  ElevatedButton(
-                    onPressed: _isLoading ? null : _handleLogin,
-                    child: _isLoading
-                        ? const SizedBox(
-                            height: 20,
-                            width: 20,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: Colors.white,
-                            ),
-                          )
-                        : const Text('Login'),
-                  ),
-                ],
+                ),
               ),
             ),
           ),

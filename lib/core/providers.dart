@@ -6,6 +6,7 @@ import '../features/nutrition/data/nutrition_repository.dart';
 import '../features/portal/data/portal_repository.dart';
 import '../features/punch/data/punch_repository.dart';
 import '../features/push/data/push_repository.dart';
+import '../features/session/data/biometric_lock.dart';
 import '../features/session/data/session_repository.dart';
 
 /// Plain Riverpod providers (no code generation) shared across the app.
@@ -18,6 +19,10 @@ final sessionRepositoryProvider = Provider<SessionRepository>((ref) {
   return SessionRepository(
     supabaseClient: ref.watch(supabaseClientProvider),
   );
+});
+
+final biometricLockProvider = Provider<BiometricLock>((ref) {
+  return BiometricLock();
 });
 
 final authRepositoryProvider = Provider<AuthRepository>((ref) {
